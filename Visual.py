@@ -6,7 +6,7 @@ st.set_page_config(page_title="Chat Financeiro IA", layout="centered")
 # =========================
 # CONFIGURAÇÃO
 # =========================
-N8N_WEBHOOK_URL = "https://score1.app.n8n.cloud/webhook-test/resumir-financeiro"
+N8N_WEBHOOK_URL = "https://score1.app.n8n.cloud/webhook/resumir-financeiro"
 
 # =========================
 # ESTADO INICIAL
