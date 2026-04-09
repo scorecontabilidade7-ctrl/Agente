@@ -1,17 +1,27 @@
+import os
 import pandas as pd
 import requests
+from openpyxl import load_workbook
 
 # ==========================
 # CONFIGURAÇÕES
 # ==========================
-CAMINHO_ARQUIVO = r"C:\Users\User\OneDrive\Documents\SCORE CONTABILIDADE\03 - CONSULTORIA\Maria Lima Brand - 01-23\AGENTE DE IA\BASE DE CONHECIMENTO\PLANILHA BASE\fluxo_caixa_consolidado.xlsx"
+ARQUIVO_SAIDA = r"C:\Users\User\OneDrive\Documents\SCORE CONTABILIDADE\03 - CONSULTORIA\Maria Lima Brand - 01-23\AGENTE DE IA\BASE DE CONHECIMENTO\PLANILHA BASE\fluxo_caixa_consolidado.xlsx"
 
 WEBHOOK_URL = "https://score1.app.n8n.cloud/webhook-test/resumir-financeiro"
 
+LINHA_CABECALHO = 1
+EXTENSOES_VALIDAS = (".xlsx", ".xlsm", ".xls")
+ABA_ALVO = None
+
 
 # ==========================
-# NORMALIZAR TEXTO
+# FUNÇÕES (MANTIDAS)
 # ==========================
+def limpar_linhas_vazias(df):
+    return df.dropna(how="all").reset_index(drop=True)
+
+
 def normalizar(texto):
     return (
         str(texto)
@@ -22,12 +32,11 @@ def normalizar(texto):
     )
 
 
-# ==========================
-# FILTRAR DADOS
-# ==========================
 def filtrar_dados(df, mes):
+    df = df.copy()
+
     if 'MES' not in df.columns:
-        raise ValueError("Coluna 'MES' não encontrada.")
+        raise ValueError("A coluna 'MES' não foi encontrada na planilha.")
 
     df['MES'] = df['MES'].apply(normalizar)
 
@@ -36,9 +45,6 @@ def filtrar_dados(df, mes):
     return df_filtrado
 
 
-# ==========================
-# ENVIAR PARA WEBHOOK
-# ==========================
 def enviar_webhook(df_filtrado):
     dados = df_filtrado.to_dict(orient='records')
 
@@ -52,22 +58,28 @@ def enviar_webhook(df_filtrado):
 
 
 # ==========================
-# PROCESSO PRINCIPAL
+# PROCESSAMENTO PRINCIPAL
 # ==========================
-def executar(mes_usuario):
-    print("Lendo planilha consolidada...")
+def consolidar_planilhas(mes_usuario):
+    print("Lendo arquivo consolidado...")
 
-    df = pd.read_excel(CAMINHO_ARQUIVO)
+    df_final = pd.read_excel(ARQUIVO_SAIDA)
 
-    print("Filtrando dados...")
-    df_filtrado = filtrar_dados(df, mes_usuario)
+    df_final = limpar_linhas_vazias(df_final)
 
-    print(f"Total de linhas filtradas: {len(df_filtrado)}")
+    # ==========================
+    # FILTRAR POR MÊS
+    # ==========================
+    df_filtrado = filtrar_dados(df_final, mes_usuario)
 
-    print("Enviando para webhook...")
+    print(f"\nTotal de linhas filtradas: {len(df_filtrado)}")
+
+    # ==========================
+    # ENVIAR PARA WEBHOOK
+    # ==========================
     status, resposta = enviar_webhook(df_filtrado)
 
-    print(f"Status: {status}")
+    print(f"\nStatus webhook: {status}")
     print(f"Resposta: {resposta}")
 
 
@@ -76,4 +88,4 @@ def executar(mes_usuario):
 # ==========================
 if __name__ == "__main__":
     mes = input("Digite o mês (ex: MARCO): ")
-    executar(mes)
+    consolidar_planilhas(mes)
