@@ -8,7 +8,7 @@ st.set_page_config(page_title="Chat Financeiro IA", layout="centered")
 # CONFIGURAÇÃO
 # =========================
 N8N_WEBHOOK_URL = "https://score1.app.n8n.cloud/webhook-test/resumir-financeiro"
-ARQUIVO_EXCEL = r"C:\Users\User\OneDrive\Documents\SCORE CONTABILIDADE\03 - CONSULTORIA\Maria Lima Brand - 01-23\AGENTE DE IA\BASE DE CONHECIMENTO\PLANILHA BASE\fluxo_caixa_consolidado.xlsx"
+ARQUIVO_EXCEL = "fluxo_caixa_consolidado.xlsx"
 
 # =========================
 # ESTADO INICIAL
