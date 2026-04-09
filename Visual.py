@@ -1,14 +1,12 @@
 import streamlit as st
 import requests
-import pandas as pd
 
 st.set_page_config(page_title="Chat Financeiro IA", layout="centered")
 
 # =========================
 # CONFIGURAÇÃO
 # =========================
-N8N_WEBHOOK_URL = "https://score1.app.n8n.cloud/webhook/resumir-financeiro"
-ARQUIVO_EXCEL = "fluxo_caixa_consolidado.xlsx"
+N8N_WEBHOOK_URL = "https://SEU-N8N/webhook/resumir-financeiro"
 
 # =========================
 # ESTADO INICIAL
@@ -18,12 +16,6 @@ if "messages" not in st.session_state:
 
 if "loading" not in st.session_state:
     st.session_state.loading = False
-
-if "mes_escolhido" not in st.session_state:
-    st.session_state.mes_escolhido = "JANEIRO"
-
-if "dados_filtrados" not in st.session_state:
-    st.session_state.dados_filtrados = []
 
 
 def add_user_message(text):
@@ -46,9 +38,7 @@ def enviar_para_n8n(pergunta):
     e retorna o texto da resposta.
     """
     payload = {
-        "message": pergunta,
-        "mes": st.session_state.mes_escolhido,
-        "dados": st.session_state.dados_filtrados
+        "message": pergunta
     }
 
     response = requests.post(
@@ -66,32 +56,6 @@ def enviar_para_n8n(pergunta):
 
 
 st.title("Chat Financeiro IA")
-
-st.session_state.mes_escolhido = st.selectbox(
-    "Selecione o mês",
-    ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"],
-    index=["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"].index(st.session_state.mes_escolhido)
-)
-
-df = pd.read_excel(ARQUIVO_EXCEL)
-df.columns = [str(col).strip().upper() for col in df.columns]
-
-if "MÊS" in df.columns:
-    coluna_mes = "MÊS"
-elif "MES" in df.columns:
-    coluna_mes = "MES"
-else:
-    st.error("A planilha precisa ter uma coluna chamada 'MÊS' ou 'MES'.")
-    st.stop()
-
-df[coluna_mes] = df[coluna_mes].astype(str).str.strip().str.upper()
-df_filtrado = df[df[coluna_mes] == st.session_state.mes_escolhido].copy()
-
-for col in df_filtrado.columns:
-    if pd.api.types.is_datetime64_any_dtype(df_filtrado[col]):
-        df_filtrado[col] = df_filtrado[col].dt.strftime("%Y-%m-%d")
-
-st.session_state.dados_filtrados = df_filtrado.fillna("").to_dict(orient="records")
 
 # =========================
 # BOTÃO INICIAL
