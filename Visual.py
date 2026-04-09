@@ -1,91 +1,130 @@
-import os
-import pandas as pd
+import streamlit as st
 import requests
-from openpyxl import load_workbook
+import pandas as pd
 
-# ==========================
-# CONFIGURAÇÕES
-# ==========================
-ARQUIVO_SAIDA = r"C:\Users\User\OneDrive\Documents\SCORE CONTABILIDADE\03 - CONSULTORIA\Maria Lima Brand - 01-23\AGENTE DE IA\BASE DE CONHECIMENTO\PLANILHA BASE\fluxo_caixa_consolidado.xlsx"
+st.set_page_config(page_title="Chat Financeiro IA", layout="centered")
 
-WEBHOOK_URL = "https://score1.app.n8n.cloud/webhook-test/resumir-financeiro"
+# =========================
+# CONFIGURAÇÃO
+# =========================
+N8N_WEBHOOK_URL = "https://score1.app.n8n.cloud/webhook-test/resumir-financeiro"
+ARQUIVO_EXCEL = r"C:\Users\User\OneDrive\Documents\SCORE CONTABILIDADE\03 - CONSULTORIA\Maria Lima Brand - 01-23\AGENTE DE IA\BASE DE CONHECIMENTO\PLANILHA BASE\fluxo_caixa_consolidado.xlsx"
 
-LINHA_CABECALHO = 1
-EXTENSOES_VALIDAS = (".xlsx", ".xlsm", ".xls")
-ABA_ALVO = None
+# =========================
+# ESTADO INICIAL
+# =========================
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
+if "loading" not in st.session_state:
+    st.session_state.loading = False
 
-# ==========================
-# FUNÇÕES (MANTIDAS)
-# ==========================
-def limpar_linhas_vazias(df):
-    return df.dropna(how="all").reset_index(drop=True)
+if "mes_escolhido" not in st.session_state:
+    st.session_state.mes_escolhido = "JANEIRO"
 
-
-def normalizar(texto):
-    return (
-        str(texto)
-        .strip()
-        .upper()
-        .encode("ascii", errors="ignore")
-        .decode("utf-8")
-    )
+if "dados_filtrados" not in st.session_state:
+    st.session_state.dados_filtrados = []
 
 
-def filtrar_dados(df, mes):
-    df = df.copy()
-
-    if 'MES' not in df.columns:
-        raise ValueError("A coluna 'MES' não foi encontrada na planilha.")
-
-    df['MES'] = df['MES'].apply(normalizar)
-
-    df_filtrado = df[df['MES'] == normalizar(mes)]
-
-    return df_filtrado
+def add_user_message(text):
+    st.session_state.messages.append({
+        "role": "user",
+        "content": text
+    })
 
 
-def enviar_webhook(df_filtrado):
-    dados = df_filtrado.to_dict(orient='records')
+def add_assistant_message(text):
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": text
+    })
+
+
+def enviar_para_n8n(pergunta):
+    """
+    Envia a pergunta para o webhook do n8n
+    e retorna o texto da resposta.
+    """
+    payload = {
+        "message": pergunta,
+        "mes": st.session_state.mes_escolhido,
+        "dados": st.session_state.dados_filtrados
+    }
 
     response = requests.post(
-        WEBHOOK_URL,
-        json={"dados": dados},
-        timeout=60
+        N8N_WEBHOOK_URL,
+        json=payload,
+        timeout=120
     )
 
-    return response.status_code, response.text
+    response.raise_for_status()
+
+    data = response.json()
+
+    # Ajuste aqui conforme o JSON que o n8n retornar
+    return data.get("resposta", "O agente respondeu, mas não veio nenhum texto em 'resposta'.")
 
 
-# ==========================
-# PROCESSAMENTO PRINCIPAL
-# ==========================
-def consolidar_planilhas(mes_usuario):
-    print("Lendo arquivo consolidado...")
+st.title("Chat Financeiro IA")
 
-    df_final = pd.read_excel(ARQUIVO_SAIDA)
+st.session_state.mes_escolhido = st.selectbox(
+    "Selecione o mês",
+    ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"],
+    index=["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"].index(st.session_state.mes_escolhido)
+)
 
-    df_final = limpar_linhas_vazias(df_final)
+df = pd.read_excel(ARQUIVO_EXCEL)
+df.columns = [str(col).strip().upper() for col in df.columns]
 
-    # ==========================
-    # FILTRAR POR MÊS
-    # ==========================
-    df_filtrado = filtrar_dados(df_final, mes_usuario)
+if "MÊS" in df.columns:
+    coluna_mes = "MÊS"
+elif "MES" in df.columns:
+    coluna_mes = "MES"
+else:
+    st.error("A planilha precisa ter uma coluna chamada 'MÊS' ou 'MES'.")
+    st.stop()
 
-    print(f"\nTotal de linhas filtradas: {len(df_filtrado)}")
+df[coluna_mes] = df[coluna_mes].astype(str).str.strip().str.upper()
+df_filtrado = df[df[coluna_mes] == st.session_state.mes_escolhido].copy()
+st.session_state.dados_filtrados = df_filtrado.fillna("").to_dict(orient="records")
 
-    # ==========================
-    # ENVIAR PARA WEBHOOK
-    # ==========================
-    status, resposta = enviar_webhook(df_filtrado)
+# =========================
+# BOTÃO INICIAL
+# =========================
+col1, col2 = st.columns([1, 2])
 
-    print(f"\nStatus webhook: {status}")
-    print(f"Resposta: {resposta}")
+with col1:
+    if st.button("Resumir meu financeiro", use_container_width=True):
+        pergunta = "Resuma meu financeiro"
 
+        add_user_message(pergunta)
+        st.session_state.loading = True
+        st.rerun()
 
-# ==========================
-# EXECUÇÃO
-# ==========================
-if __name__ == "__main__":
-    mes = input("Digite o mês (ex: MARCO): ")
-    consolidar_planilhas(mes)
+# =========================
+# EXIBIÇÃO DO CHAT
+# =========================
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+# =========================
+# CHAMADA AO N8N COM EFEITO DE 'PENSANDO'
+# =========================
+if st.session_state.loading:
+    with st.chat_message("assistant"):
+        with st.spinner("Pensando e consultando o agente de IA..."):
+            try:
+                ultima_pergunta = st.session_state.messages[-1]["content"]
+                resposta_ia = enviar_para_n8n(ultima_pergunta)
+                add_assistant_message(resposta_ia)
+
+            except requests.exceptions.RequestException as e:
+                add_assistant_message(f"Erro ao conectar com o n8n: {e}")
+
+            except Exception as e:
+                add_assistant_message(f"Ocorreu um erro inesperado: {e}")
+
+            finally:
+                st.session_state.loading = False
+                st.rerun()
