@@ -7,7 +7,7 @@ st.set_page_config(page_title="Chat Financeiro IA", layout="centered")
 # =========================
 # CONFIGURAÇÃO
 # =========================
-N8N_WEBHOOK_URL = "https://score1.app.n8n.cloud/webhook-test/resumir-financeiro"
+N8N_WEBHOOK_URL = "https://score1.app.n8n.cloud/webhook/resumir-financeiro"
 ARQUIVO_EXCEL = "fluxo_caixa_consolidado.xlsx"
 
 # =========================
@@ -86,6 +86,11 @@ else:
 
 df[coluna_mes] = df[coluna_mes].astype(str).str.strip().str.upper()
 df_filtrado = df[df[coluna_mes] == st.session_state.mes_escolhido].copy()
+
+for col in df_filtrado.columns:
+    if pd.api.types.is_datetime64_any_dtype(df_filtrado[col]):
+        df_filtrado[col] = df_filtrado[col].dt.strftime("%Y-%m-%d")
+
 st.session_state.dados_filtrados = df_filtrado.fillna("").to_dict(orient="records")
 
 # =========================
